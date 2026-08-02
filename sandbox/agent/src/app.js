@@ -68,13 +68,6 @@ app.get("/list-files", async (req, res) => {
       status: "error",
     })
   }
-
-  res.status(200).json({
-    message: "Files successfully fetched",
-    results
-  });
-
-
 })
 
 
@@ -88,25 +81,25 @@ app.get("/read-files", async (req, res) => {
   const files = req.query.files;
 
   if (!files) {
-    return req.status(400).json({
+    return res.status(400).json({
       message: "No files specified in query parameter",
       status: "error",
     });
   }
 
-  const filesList = files.splice(",");
+  const filesList = files.split(",");
 
   const results = await Promise.all(filesList.map(async (file) => {
-    const filePath = `${WORKING_DIR}/${file}`;
+    const filePath = path.join(WORKING_DIR, file);
     try {
-      const content = await fs.promises.readFile(filesPath, "utf-8");
+      const content = await fs.promises.readFile(filePath, "utf-8");
       return {
-        [filePath]: content
+        [filePath.replace(WORKING_DIR, "")]: content
       }
     }
     catch (err) {
       return {
-        [filePath]: `Error reading file: ${err.message}`
+        [filePath.replace(WORKING_DIR, "")]: `Error reading file: ${err.message}`
       }
     }
   }));
@@ -146,13 +139,12 @@ app.patch("/update-files", async (req, res) => {
         [filePath]: `Error updating file: ${err.message}`,
       }
     }
+  }));
 
-    res.status(200).json({
-      message: "File update results",
-      results
-    });
-
-  }))
+  res.status(200).json({
+    message: "File update results",
+    results
+  });
 })
 
 
@@ -170,10 +162,12 @@ app.post("/create-files", async (req, res) => {
     })
   }
 
-  const results = await Promise.all(files.map(async (file) => {
-    const { file, content } = update;
+  const results = await Promise.all(files.map(async (item) => {
+    const { file, content } = item;
     const filePath = path.join(WORKING_DIR, file);
+
     try {
+      await fs.promises.mkdir(path.dirname(filePath), { recursive: true })
       await fs.promises.writeFile(filePath, content, 'utf-8');
       return {
         [filePath]: "File created successfully",
@@ -184,13 +178,12 @@ app.post("/create-files", async (req, res) => {
         [filePath]: `Error creating file: ${err.message}`,
       }
     }
+  }));
 
-    res.status(200).json({
-      message: "File created successfully",
-      results
-    });
-
-  }))
+  res.status(200).json({
+    message: "File creation results",
+    results
+  });
 })
 
 export default app
